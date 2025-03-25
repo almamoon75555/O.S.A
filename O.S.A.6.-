@@ -1,0 +1,46 @@
+:global ROUTER;
+:set ($ROUTER->("USERMAN")->("GETIDS")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:if ([:typeof $ALLUSERSID]!="array") do={:set $ALLUSERSID [:toarray ""];};:set ($ALLUSERSID->("M")) [:toarray ""];:local A [:toarray ""];:tool user-manager user find [:set ($A->("$username")) $".id";];:set ($ALLUSERSID->("M")) $A;:return $A;};
+:set ($ROUTER->("USERMAN")->("GETID")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:if ([:len ($ALLUSERSID->("M")->("$User"))]>0) do={:return ($ALLUSERSID->("M")->("$User"))};:local A [:toarray ""];:tool user-manager user find [:set ($A->("$username")) $".id";];:set ($ALLUSERSID->("M")) $A;:return ($A->("$User"));};
+:set ($ROUTER->("USERMAN")->("GETPAYEMNTS")) do={:global ROUTER;:global OSAMA;:global ALLPAYMENTS;:if ([:typeof $ALLPAYMENTS]!="array") do={:set $ALLPAYMENTS [:toarray ""];};:set ($ALLPAYMENTS->("M")) [:toarray ""];:local A [:toarray ""];[:tool user-manager payment find [:set ($A->("$username")) $".id";]];:set ($ALLPAYMENTS->("M")) $A;:return $A;};
+:set ($ROUTER->("USERMAN")->("GETPAYEMNT")) do={:global ROUTER;:global OSAMA;:global ALLPAYMENTS;:local A [:toarray ""];:if ([:len ($ALLPAYMENTS->("M")->("$User"))]>0) do={:do {:set $A [:tool user-manager payment get ($ALLPAYMENTS->("M")->("$User"))]} on-error={};};:return $A;};
+:set ($ROUTER->("USERMAN")->("GETDATA")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:if ([:len ($ALLUSERSID->("M")->("$User"))]>0) do={:return [:tool user-manager user get ($ALLUSERSID->("M")->("$User"))]};:return [:toarray ""];}
+:set ($ROUTER->("USERMAN")->("GETLIMIT")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:if ([:len ($ALLUSERSID->("M")->("$User"))]>0) do={:local P [($ROUTER->("USERMAN")->("GETPROFILE")) User=$User];:local L [:tool user-manager profile limitation get [:tool user-manager profile limitation find name=[:tool user-manager profile profile-limitation get ([:tool user-manager profile profile-limitation find profile=($P->("name"))]->0) limitation]]];:return $L};:return [:toarray ""];};
+:set ($ROUTER->("USERMAN")->("GETMEGA")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:if ([:len ($ALLUSERSID->("M")->("$User"))]>0) do={:local L [($ROUTER->("USERMAN")->("GETLIMIT")) User=$User];:if ([:len ($L->("transfer-limit"))]>0) do={:return ($L->("transfer-limit"))}};:return ([]);};
+:set ($ROUTER->("USERMAN")->("GETPROFILE")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:local Id;:if ([:len $User]>0) do={:set $Id [:tool user-manager profile find where name=([($ROUTER->("USERMAN")->("GETDATA")) User=$User]->("actual-profile"))];:if ([:len $Id]>0) do={:return [:tool user-manager profile get $Id];};} else={:set $Id [:tool user-manager profile find where name=$Name];:if ([:len $Id]>0) do={:return [:tool user-manager profile get $Id];};};:return [:toarray ""];};
+:set ($ROUTER->("USERMAN")->("GETUSERDAYS")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:local A [($ROUTER->("GETDATA")) User=$User];:if ([:len $A]>0) do={:if ([:len ($A->("comment"))]>5) do={:return ($A->("comment"));};:local d [/system clock get date];:local t [/system clock get time];:local Pr [($ROUTER->("GETPROFILE")) User=$User Name=$Name];:local Co ("$d-".[($OSAMA->("ADD/DATE")) Date=$d Time=$t N=[($OSAMA->("TIME2NUM")) Date=$d Time=[:totime [:tostr ($Pr->("validity"))]]]]);:if ("$OPTION"="SET") do={[:tool user-manager user comment ($A->(".id")) comment=$Co];};:return $Co;};:return ("");};
+:set ($ROUTER->("USERMAN")->("USEANDWIN")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:local Id;:do {:local CUS [:tool user-manager customer get 0 login];:local pass [:tool user-manager user get ($ALLUSERSID->("M")->("$User")) password];:if ([:len $pass]>0) do={:set $pass $Name;} else={:set $pass "";};:set ($ALLUSERSID->("M")->("$Name")) [:tool user-manager user add copy-from=($ALLUSERSID->("M")->("$User")) username="$Name" password=$pass caller-id=$Mac comment=$Comment customer=$CUS ];:delay 1s;[:tool user-manager user create-and-activate-profile ($ALLUSERSID->("M")->("$Name"))  profile=$Profile  customer=$CUS ];} on-error={ };:return ($ALLUSERSID->("M")->("$Name"));};
+:set ($ROUTER->("USERMAN")->("ADDUSER")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:local Id;:do {:set ($ALLUSERSID->("M")->("$Name")) [:tool user-manager user add copy-from=($ALLUSERSID->("M")->("$User")) username="$Name" password="$Name" caller-id=$Mac comment=$Comment];} on-error={ };:return ($ALLUSERSID->("M")->("$Name"));};
+:set ($ROUTER->("USERMAN")->("CHANGEPROF")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:local Id;:do {:local CUS [:tool user-manager customer get 0 login];[:tool user-manager user clear-profiles ($ALLUSERSID->("M")->("$User"))  ];[:tool user-manager user create-and-activate-profile ($ALLUSERSID->("M")->("$User")) profile=$Profile  customer=$CUS ];} on-error={:return ([]);};:return ($ALLUSERSID->("M")->("$User"));};
+:set ($ROUTER->("USERMAN")->("LOAN")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:local Id;
+:local oldprofile [($ROUTER->("USERMAN")->("GETPROFILE"))  User=$U];
+:if ([:len ($oldprofile->("name"))]>1) do={
+:local newprofile;
+:set $newprofile [($ROUTER->("USERMAN")->("GETPROFILE"))  Name=(($oldprofile->("name"))."loan")];
+:if ([:len ($newprofile->("name"))]>1) do={
+:do {/ip hotspot active remove [find address=$A];} on-error={ };
+:delay 10ms;
+:do {[($ROUTER->("USERMAN")->("CHANGEPROF")) User=$U Profile=($newprofile->("name"))];} on-error={ };
+:do {/ip hotspot user remove ("T-$M");} on-error={ };
+:delay 100ms;
+:do {/ip hotspot active login ip=$A mac-address=$M user=$U password=([($ROUTER->("USERMAN")->("GETDATA")) User=$U]->("password"));} on-error={ };
+};};:return ("");}
+:set ($ROUTER->("USERMAN")->("SAHRA")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:local Id;
+:local oldprofile [($ROUTER->("USERMAN")->("GETPROFILE"))  User=$U];
+:if ([:len ($oldprofile->("name"))]>1) do={
+:local newprofile;
+:set $newprofile [($ROUTER->("USERMAN")->("GETPROFILE"))  Name=(($oldprofile->("name"))."sahar")];
+:if ([:len ($newprofile->("name"))]>1) do={
+:do {[($ROUTER->("USERMAN")->("CHANGEPROF")) User=$U Profile=($newprofile->("name"))];} on-error={ };
+:do {/ip hotspot active remove [find address=$A];} on-error={ };:delay 10ms;
+:do {/ip hotspot active login ip=$A mac-address=$M user=$U password=([($ROUTER->("USERMAN")->("GETDATA")) User=$U]->("password"));} on-error={ };
+};};:return ("");}
+:set ($ROUTER->("USERMAN")->("FRIDAY")) do={:global ROUTER;:global OSAMA;:global ALLUSERSID;:local Id;
+:local oldprofile [($ROUTER->("USERMAN")->("GETPROFILE"))  User=$U];
+:if ([:len ($oldprofile->("name"))]>1) do={
+:local newprofile;
+:set $newprofile [($ROUTER->("USERMAN")->("GETPROFILE"))  Name=(($oldprofile->("name"))."fri")];
+:if ([:len ($newprofile->("name"))]>1) do={
+:do {[($ROUTER->("USERMAN")->("CHANGEPROF")) User=$U Profile=($newprofile->("name"))];} on-error={ };
+:do {/ip hotspot active remove [find address=$A];} on-error={ };:delay 10ms;
+:do {/ip hotspot active login ip=$A mac-address=$M user=$U password=([($ROUTER->("USERMAN")->("GETDATA")) User=$U]->("password"));} on-error={ };
+};};:return ("");};
